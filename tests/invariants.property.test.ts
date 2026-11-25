@@ -181,7 +181,7 @@ function checkStep(p: PoolParams, before: PoolState, e: PoolEvent, r: Receipt, a
     dDownBefore = getDDown(xb, amp);
   } catch (error) {
     // Proportional exits never price anything, so they must keep working even on states
-    // (e.g. after a rate change) where Curve's D does not converge. Every other event
+    // (e.g. after a rate change) where Newton's D does not converge. Every other event
     // computed D itself, so it cannot have been accepted on such a state.
     expect((error as { code?: string }).code).toBe("NO_CONVERGENCE");
     expect(e.type).toBe("RemoveLiquidity");
@@ -205,7 +205,7 @@ function run(p: PoolParams, initial: readonly bigint[], cmds: readonly Cmd[]): T
   const trace: Trace = { ledger, accepted: 0, rejected: new Map() };
   const boot = ledger.tryAppend({ type: "AddLiquidity", height: 1n, by: "lp0", amounts: units(initial[0]!, initial[1]!, initial[2]!), minMint: 0n });
   if (!boot.ok) {
-    // Extreme bootstrap imbalance at low A: Curve's D does not converge, so the pool refuses it.
+    // Extreme bootstrap imbalance at low A: Newton's D does not converge, so the pool refuses it.
     expect(boot.error.code).toBe("NO_CONVERGENCE");
     expect(ledger.events.length).toBe(0);
     return trace;

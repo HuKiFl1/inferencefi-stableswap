@@ -278,7 +278,7 @@ export function getDx(state: PoolState, params: PoolParams, height: Height, i: C
 }
 
 /**
- * calc_token_amount, fee-inclusive (StableSwap-NG semantics, not 3pool's
+ * calc_token_amount, fee-inclusive (StableSwap-NG semantics, not the original pools'
  * fee-less estimate). Deposit: shares the depositor would receive. Withdrawal:
  * shares RemoveLiquidityImbalance would burn.
  */

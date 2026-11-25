@@ -29,11 +29,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run typecheck && npm test",
-    "reference": "python3 scripts/curve_3pool_reference.py > tests/fixtures/curve-3pool-reference.json"
+    "reference": "python3 scripts/stableswap_paper_reference.py > tests/fixtures/stableswap-paper-reference.json"
   },
   "keywords": [
     "stableswap",
-    "curve",
     "amm",
     "inference",
     "bigint",

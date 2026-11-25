@@ -1,4 +1,9 @@
-# Proposal: StableSwap pool as a native FLOP module
+# Future option: StableSwap pool as a native FLOP module
+
+> **Long-term option only. The current product is EVM (Inference Finance on
+> HyperEVM testnet).** This repository's current role is an independent
+> off-chain reference and test-vector source for that EVM stack; see
+> [FLOP.md](../FLOP.md). Nothing below is planned work.
 
 Status: **design proposal**, not adopted. FLOP adds functionality only "as
 audited native modules adopted through governance, never as user-deployed
@@ -17,11 +22,11 @@ weights have known maxima.
 |---|---|---|
 | `Pools` | `PoolId → PoolInfo` | Coins (2 ≤ n ≤ `MaxCoins` = 8), fee, admin fee, `minimumLiquidity`, `minTradeAmount`, `N`, `W`. |
 | `Balances` | `PoolId → BoundedVec<u128, MaxCoins>` | Pool holdings per coin, plus admin (reserve) balances. |
-| `Rates` | `PoolId → BoundedVec<(u128 rate, BlockNumber last_update), MaxCoins>` | Rate multipliers, with bounded step size and spacing (SPEC §7). Rates up to 1e39 exceed `u128`, so this needs `U256` or a narrower bound. |
+| `Rates` | `PoolId → BoundedVec<(u128 rate, BlockNumber last_update), MaxCoins>` | Rate multipliers, with bounded step size and spacing ([SPEC](../SPEC.md) §7). Rates up to 1e39 exceed `u128`, so this needs `U256` or a narrower bound. |
 | `ARamp` | `PoolId → (initial_A, future_A, start, end)` | Linear in block height, with a minimum duration and a 10x limit. |
 | `LpSupply` | `PoolId → u128`, `LpBalances: (PoolId, AccountId) → u128` | `minimumLiquidity` locked forever at bootstrap. |
 | `PendingFees` | `PoolId → Option<(fee, admin_fee, commit_height)>` | Delayed fee changes. |
-| `Backing` | `(PoolId, coin) → BackingState` | Nonce, `recoverable`, progress height, challenge / `reclaimableAt`, reclaimed flag (SPEC §9). |
+| `Backing` | `(PoolId, coin) → BackingState` | Nonce, `recoverable`, progress height, challenge / `reclaimableAt`, reclaimed flag ([SPEC](../SPEC.md) §9). |
 | `EventLog` | `PoolId → BoundedVec<EventDigest, MaxLog>` (ring buffer) | A bounded recent log. The full history lives in chain events, which is enough to `replay` off-chain. |
 
 ## Dispatchables
@@ -56,7 +61,7 @@ library's reentrancy lock becomes unnecessary.
   not on per-LP storage.
 - Intermediate products reach roughly D^(n+1); the reference uses unbounded
   `bigint`. The pallet needs `U256`/`U512` with checked arithmetic and the
-  `MAX_XP = 1e33` domain bound (SPEC §6.1).
+  `MAX_XP = 1e33` domain bound ([SPEC](../SPEC.md) §6.1).
 
 ## FLOP primitives it relies on
 
@@ -73,7 +78,7 @@ library's reentrancy lock becomes unnecessary.
   window's end. FCUs are ratified design, not yet implemented.
 - **Governance and enactment delay** for `A`, fees and rates (§09).
 
-## Why no EVM is needed
+## If FLOP ever adopts this natively
 
 FLOP has no EVM by design (§03). The pool is fixed, deterministic integer
 arithmetic over a few storage items, with no user-supplied code. That is
@@ -90,7 +95,7 @@ every pool, parameterised by storage, instead of a contract deployed per pool.
    nothing" (§07), so a pallet-level admin fee probably belongs to LPs or a
    reserve, not to the protocol.
 5. Minimum `A` floor (for example 10) to avoid non-convergence at extreme
-   imbalance (SPEC §14, question 8).
+   imbalance ([SPEC](../SPEC.md) §14, question 8).
 6. Does TCLK's "a timeout does not expire a claim" rule apply to the backing
    challenge window?
 7. Is `MaxLog` needed at all, or are chain events plus off-chain replay

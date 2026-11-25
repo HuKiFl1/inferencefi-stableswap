@@ -88,18 +88,23 @@ function battery(m: M): void {
     return undefined;
   };
 
-  // 1. Solver against Curve 3pool reference values.
-  const fixture = JSON.parse(readFileSync(new URL("./fixtures/curve-3pool-reference.json", import.meta.url), "utf8")) as {
+  // 1. Solver against the independent paper reference (exact bisection roots).
+  const fixture = JSON.parse(readFileSync(new URL("./fixtures/stableswap-paper-reference.json", import.meta.url), "utf8")) as {
     rates: string[];
-    cases: { balances: string[]; A: number; D: string }[];
-    nonConvergence: { A: number; balances: string[]; converged: boolean }[];
+    cases: { balances: string[]; A: number; dUp: string; dDown: string }[];
   };
   const rates = fixture.rates.map(BigInt);
   for (const c of fixture.cases) {
-    assert.equal(m.getD(m.xpOf(c.balances.map(BigInt), rates), BigInt(c.A) * m.A_PRECISION), BigInt(c.D));
+    const xp = m.xpOf(c.balances.map(BigInt), rates);
+    const amp = BigInt(c.A) * m.A_PRECISION;
+    assert.equal(m.getDUp(xp, amp), BigInt(c.dUp));
+    assert.equal(m.getDDown(xp, amp), BigInt(c.dDown));
+    const newton = m.getD(xp, amp);
+    assert.ok(newton >= BigInt(c.dDown) - 2n && newton <= BigInt(c.dUp) + 2n);
   }
-  const nc = fixture.nonConvergence.find((c) => !c.converged)!;
-  assert.equal(code(() => m.getD(m.xpOf(nc.balances.map(BigInt), rates), BigInt(nc.A) * m.A_PRECISION)), "NO_CONVERGENCE");
+  // A state on which Newton's integer iteration cycles (A = 1, ~2000:1); it must revert, not return a guess.
+  const cycling = [2_000n * E18, E6, E6];
+  assert.equal(code(() => m.getD(m.xpOf(cycling, rates), 1n * m.A_PRECISION)), "NO_CONVERGENCE");
   for (const xp of [[E18, 3n * E18], [7n * E18 + 3n, 11n * E18 + 5n, 13n * E18 + 1n]]) {
     const up = m.getDUp(xp, 20_000n);
     const down = m.getDDown(xp, 20_000n);

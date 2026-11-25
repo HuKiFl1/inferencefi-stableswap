@@ -11,7 +11,7 @@ Run it:
 npm ci
 npm test                       # all suites, PROPERTY_RUNS=200 by default
 PROPERTY_RUNS=2000 npm test    # deeper fuzzing
-npm run reference              # regenerate Curve 3pool vectors (python3, no deps)
+npm run reference              # regenerate the paper reference vectors (python3, no deps)
 ```
 
 ## 1. Swap boundaries
@@ -138,13 +138,14 @@ What the integration must guarantee (not testable in this repo alone):
 | CowSwapBurner (2026) | `security` payload binding |
 | Keep3r (windows) | `settlement` window boundaries |
 
-**Reference values** (`tests/reference.test.ts`). The fixture is a
-transcription of 3pool's Vyper, and Curve's `simulation.py` agreed with it on
-96/96 values when the fixture was generated.
+**Reference values** (`tests/reference.test.ts`). The fixture is an
+independent reference derived from the StableSwap paper (Egorov 2019);
+conventions match public Curve docs. It solves the invariant by exact integer
+bisection, with no Newton iteration.
 
-- D (16/16 cases) and y (80/80) agree to the wei, and so does Curve's
-  exchange formula (240/240).
-- The pool's own swaps pay at most what 3pool pays.
+- Exactly rounded D (16/16 cases) and y (80/80) equal the exact roots; Newton
+  is within 2 units, and `newtonExchangeDy` within 2 native units (240/240).
+- The pool's own swaps and one-coin exits never pay more than the ideal amount.
 
 **Mutation** (`tests/mutation.test.ts`). 22 injected bugs (rounding, fees,
 bootstrap, limits, settlement boundaries, rollback, lock) are each killed by

@@ -106,7 +106,7 @@ function requireLiquidity(s: Snapshot): void {
 }
 
 /**
- * Per-coin imbalance fee rate fee·n / (4·(n−1)) (Curve 3pool line 274).
+ * Per-coin imbalance fee rate fee·n / (4·(n−1)) (the imbalance-fee rule in public Curve docs).
  * Rounded up: the depositor/withdrawer pays the fractional part.
  */
 export function imbalanceFeeRate(fee: bigint, n: number): bigint {
@@ -133,10 +133,10 @@ interface ExactInCore {
 }
 
 /**
- * Exact-input swap core (Curve 3pool `exchange`, lines 431-480):
+ * Exact-input swap core:
  *   x      = xp_i + ⌊dx·rate_i/1e18⌋          input credited rounded down
  *   dyG    = xp_j − y − 1                      the −1 absorbs y's ±1 Newton tolerance
- *   fee    = ⌈dyG·fee/1e10⌉                    fee rounded up (3pool: down)
+ *   fee    = ⌈dyG·fee/1e10⌉                    fee rounded up (pool's side)
  *   dy     = ⌊(dyG − fee)·1e18/rate_j⌋         output rounded down
  *   admin  = ⌊⌊fee·adminFee/1e10⌋·1e18/rate_j⌋ admin share rounded down (rest stays with LPs)
  */
@@ -177,15 +177,15 @@ function settleSwap(
 }
 
 /**
- * Curve's own exchange formula, bit for bit: Newton D and y, `xp_j − y − 1`,
- * fee rounded down (3pool `exchange` lines 461-466; StableSwap-NG `get_dy`
- * with a constant fee). Provided for cross-checking against Curve reference
- * vectors; pools execute `quoteExchange`, which rounds every step toward the
+ * Plain Newton exchange formula, derived from the StableSwap paper (Egorov
+ * 2019); conventions match public Curve docs: Newton D and y, `xp_j − y − 1`,
+ * fee rounded down. Provided for cross-checking against the independent
+ * reference vectors; pools execute `quoteExchange`, which rounds every step toward the
  * pool and so pays at most this amount. Where `xp_j − y − 1` would be zero or
  * negative (1-2 wei inputs in very skewed pools) this throws BELOW_MIN_TRADE
  * instead of underflowing.
  */
-export function curveExchangeDy(s: Snapshot, i: CoinIndex, j: CoinIndex, dx: Amount): Amount {
+export function newtonExchangeDy(s: Snapshot, i: CoinIndex, j: CoinIndex, dx: Amount): Amount {
   checkPair(s, i, j);
   if (dx < 0n) throw belowMin("dx must be >= 0");
   const xp = xpOf(s.balances, s.rates);
@@ -317,7 +317,7 @@ function checkAmounts(s: Snapshot, amounts: readonly Amount[]): void {
 }
 
 /**
- * add_liquidity / calc_token_amount(deposit) (Curve 3pool lines 274-335).
+ * add_liquidity / calc_token_amount(deposit).
  *
  * Bootstrap (supply = 0): every coin must be deposited, D1 >= minInitialD,
  * and D1 shares are created: `minimumLiquidity` locked forever, the rest
@@ -373,9 +373,9 @@ export function quoteAddLiquidity(s: Snapshot, amounts: readonly Amount[]): AddQ
 }
 
 /**
- * remove_liquidity_imbalance / calc_token_amount(withdraw) (Curve 3pool
- * lines 529-553). Fees as for deposits, and
- *   burned = ⌊(D0 − D2)·supply/D0⌋ + 1             rounded up (3pool's "+1")
+ * remove_liquidity_imbalance / calc_token_amount(withdraw). Fees as for
+ * deposits, and
+ *   burned = ⌊(D0 − D2)·supply/D0⌋ + 1             rounded up (the "+1")
  */
 export function quoteRemoveLiquidityImbalance(s: Snapshot, amounts: readonly Amount[]): RemoveImbalanceQuote {
   requireLiquidity(s);
@@ -412,8 +412,7 @@ export function quoteRemoveLiquidityImbalance(s: Snapshot, amounts: readonly Amo
 }
 
 /**
- * remove_liquidity_one_coin / calc_withdraw_one_coin (Curve 3pool
- * `_calc_withdraw_one_coin`, lines 630-654):
+ * remove_liquidity_one_coin / calc_withdraw_one_coin:
  *   D1     = D0 − ⌊shares·D0/supply⌋                  D reduction rounded down
  *   fee_k  = ⌈feeRate·expected_k/1e10⌉, expected_k rounded up
  *   dy     = ⌊(xp_reduced_i − y(D1) − 1)·1e18/rate_i⌋  output rounded down, minus 1
@@ -455,7 +454,7 @@ export function quoteRemoveLiquidityOneCoin(s: Snapshot, shares: Amount, i: Coin
   return { dy, fee, adminFee, balances };
 }
 
-/** remove_liquidity: amount_k = ⌊balance_k·shares/supply⌋, no fee (Curve 3pool lines 487-509). */
+/** remove_liquidity: amount_k = ⌊balance_k·shares/supply⌋, no fee. */
 export function quoteRemoveLiquidity(s: Snapshot, shares: Amount): RemoveQuote {
   requireLiquidity(s);
   if (shares <= 0n || shares > s.supply) throw new PoolError("INVALID_EVENT", "shares must be in (0, supply]");

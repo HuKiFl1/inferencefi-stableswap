@@ -22,7 +22,7 @@ export {
 } from "./math.js";
 export {
   imbalanceFeeRate,
-  curveExchangeDy,
+  newtonExchangeDy,
   quoteExchange,
   quoteExchangeExactOut,
   quoteAddLiquidity,

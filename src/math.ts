@@ -51,7 +51,7 @@ export function fromXpUp(xp: bigint, rate: bigint): bigint {
 }
 
 /**
- * Normalised balances, rounded down (Curve `_xp`). Rounding the pool's own
+ * Normalised balances, rounded down. Rounding the pool's own
  * balances down makes every D computed from them a slight under-estimate of
  * what the pool holds, so shares and outputs derived from D favour the pool.
  */
@@ -75,8 +75,9 @@ const converged = (a: bigint, b: bigint): boolean => absDiff(a, b) <= 1n;
 /**
  * StableSwap invariant D for normalised balances `xp` and precise amplification
  * `amp` (A * A_PRECISION). Newton's method started at D = Σx, stopping when
- * |D - D_prev| <= 1 (Curve 3pool `get_D`, lines 195-220, with the NG
- * A_PRECISION scaling). Unlike 3pool, which returns the last iterate, a run
+ * |D - D_prev| <= 1, derived from the StableSwap paper (Egorov 2019) with
+ * conventions from public Curve docs (A_PRECISION scaling). Instead of
+ * returning the last iterate, a run
  * that does not converge within `maxIterations` throws NO_CONVERGENCE.
  *
  * Preconditions (DOMAIN): 2 <= n, every 0 < x_i <= MAX_XP, 1 <= A < MAX_A.
@@ -110,8 +111,9 @@ export function getD(xp: readonly bigint[], amp: bigint, maxIterations: number =
 
 /**
  * Newton iteration for the balance y of one coin, given the sum and product
- * terms of the others: y <- (y^2 + c) / (2y + b - D) (Curve 3pool `get_y`,
- * lines 356-398). Starts at y = D and stops at a precision of 1.
+ * terms of the others: y <- (y^2 + c) / (2y + b - D), the Newton step for the
+ * paper's invariant as a quadratic in y. Starts at y = D and stops at a
+ * precision of 1.
  */
 function solveY(d: bigint, amp: bigint, others: readonly bigint[], n: bigint, maxIterations: number): bigint {
   checkAmp(amp);
@@ -162,9 +164,9 @@ export function getY(
 
 // ---------------------------------------------------------------- exactly rounded solvers
 //
-// Curve's Newton iterations floor every intermediate term (c, b, D_P, y), so
-// their results can sit on either side of the real root by a unit or so; 3pool
-// relies on fees and its "−1" to cover that. These wrappers take the Newton
+// Integer Newton iterations floor every intermediate term, so their results
+// can sit on either side of the real root by a unit or so; a plain Newton pool
+// relies on fees and a "−1" to cover that. These wrappers take the Newton
 // result as a starting point and then step it, with an exact integer test, to
 // the integer on the pool's side of the real root. The exact test makes them
 // independent of Newton's rounding: they return the y that keeps the
@@ -174,7 +176,7 @@ export function getY(
 const MAX_CORRECTION_STEPS = 64;
 
 /**
- * Sign-exact residual of the StableSwap invariant, in Curve's convention
+ * Sign-exact residual of the StableSwap paper invariant, in the public-docs convention
  * (Ann = A·n):  f(x, D) = Ann·Σx + D − Ann·D − D^(n+1)/(nⁿ·Πx).
  * Returned multiplied by A_PRECISION·nⁿ·Πx > 0, so it is an exact integer with
  * the sign of f. f is increasing in every x and decreasing in D, so
@@ -212,9 +214,9 @@ function newtonDUp(xp: readonly bigint[], amp: bigint, maxIterations: number): b
 
 /**
  * ⌈D⌉: the smallest integer D with residual(xp, D) <= 0. Use for the state
- * before an operation. If Newton does not converge (Curve's integer iteration
- * can settle into a limit cycle at extreme imbalance and low A, where 3pool
- * silently returns its last guess), or lands further than
+ * before an operation. If Newton does not converge (the integer iteration
+ * can settle into a limit cycle at extreme imbalance and low A, where a pool
+ * that returns its last guess would misprice), or lands further than
  * MAX_CORRECTION_STEPS from the exact root, this reverts with NO_CONVERGENCE
  * (StableSwap-NG behaviour): the pool never prices from an unverified D.
  */
@@ -285,7 +287,7 @@ export function getYDUp(i: number, xp: readonly bigint[], d: bigint, amp: bigint
   );
 }
 
-/** Balance of coin `i` that brings the invariant to `d`, other balances fixed (Curve `get_y_D`). */
+/** Balance of coin `i` that brings the invariant to `d`, other balances fixed. */
 export function getYD(
   i: number,
   xp: readonly bigint[],

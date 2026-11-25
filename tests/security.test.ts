@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { MAX_A, PoolError, PoolLedger, replay, type PoolEvent, type PoolParams } from "../src/index.js";
+import { A_PRECISION, MAX_A, PoolError, PoolLedger, getD, replay, xpOf, type PoolEvent, type PoolParams } from "../src/index.js";
 import { ADMIN, COINS3, E18, E6, RUNS, bootstrapped, expectCode, expectConservation, params, units } from "./helpers.js";
 
 describe("§5 Vyper reentrancy (Jul 2023): one lock across every entry point, effects before interactions", () => {
@@ -119,11 +119,20 @@ describe("§5 Balancer CSP (Nov 2025): repeated dust swaps in a low-liquidity po
 });
 
 describe("§5 yETH (Nov/Dec 2025): solver preconditions and the bootstrap path", () => {
-  it("a bootstrap on which Curve's get_D does not converge is refused with a typed error instead of minting from its last guess", () => {
-    const fixture = JSON.parse(readFileSync(new URL("./fixtures/curve-3pool-reference.json", import.meta.url), "utf8")) as {
-      nonConvergence: { A: number; balances: string[]; converged: boolean; lastGuess: string }[];
+  it("a bootstrap on which Newton's D does not converge is refused with a typed error instead of minting from its last guess", () => {
+    const fixture = JSON.parse(readFileSync(new URL("./fixtures/stableswap-paper-reference.json", import.meta.url), "utf8")) as {
+      rates: string[];
+      extremeStates: { A: number; balances: string[] }[];
     };
-    const failing = fixture.nonConvergence.filter((c) => !c.converged);
+    const rates = fixture.rates.map(BigInt);
+    const failing = fixture.extremeStates.filter((c) => {
+      try {
+        getD(xpOf(c.balances.map(BigInt), rates), BigInt(c.A) * A_PRECISION);
+        return false;
+      } catch (error) {
+        return (error as { code?: string }).code === "NO_CONVERGENCE";
+      }
+    });
     expect(failing.length).toBeGreaterThan(0);
     for (const c of failing) {
       const ledger = new PoolLedger(params({ A: BigInt(c.A), minInitialD: E6 }));

@@ -90,7 +90,7 @@ const sum = (xs: readonly bigint[]): bigint => xs.reduce((a, b) => a + b, 0n);
 
 /**
  * Exact (rational, no Newton) check that `after` lies on or above the level
- * set of the StableSwap invariant through `before` at the fixed D. In Curve's
+ * set of the StableSwap invariant through `before` at the fixed D. In the public-docs
  * code convention (Ann = A·n, i.e. code A = paper A·nⁿ⁻¹) the invariant is
  *   Ann·Σx + D = Ann·D + D^(n+1) / (nⁿ·Πx),
  * so at fixed D the state function is F(x) = Ann·Σx − D^(n+1) / (nⁿ·Πx),

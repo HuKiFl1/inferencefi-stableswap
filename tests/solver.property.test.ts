@@ -102,8 +102,8 @@ describe("D solver", () => {
     const xp = [1_000_000n * E18, 3n * E18, 7n * E18];
     expectCode(() => getD(xp, amp(100n), 1), "NO_CONVERGENCE");
     expect(MAX_ITERATIONS).toBe(255);
-    // Curve's integer Newton enters a limit cycle on this state (D oscillates by ~16 units)
-    // and 3pool would return whichever iterate it stopped on. Both layers revert instead.
+    // Integer Newton enters a limit cycle on this state (D oscillates by ~16 units)
+    // and a pool returning its last iterate would misprice. Both layers revert instead.
     expectCode(() => getD([3807n * E18, E18, E18], amp(1n)), "NO_CONVERGENCE");
     expectCode(() => getDUp([3807n * E18, E18, E18], amp(1n)), "NO_CONVERGENCE");
     expectCode(() => getDDown([3807n * E18, E18, E18], amp(1n)), "NO_CONVERGENCE");
@@ -172,7 +172,7 @@ describe("y solver", () => {
         };
         expect(invariantResidual(at(y), d, a) >= 0n).toBe(true);
         if (y > 1n) expect(invariantResidual(at(y - 1n), d, a) < 0n).toBe(true);
-        // Curve's Newton y is only close to the exact root: tens of wei off at extreme
+        // Newton's y is only close to the exact root: tens of wei off at extreme
         // imbalance. The exact solver corrects at most 64 units and reverts beyond that.
         const newton = getY(i, j, x, xp, a, d);
         const diff = newton > y ? newton - y : y - newton;

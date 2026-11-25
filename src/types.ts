@@ -12,7 +12,7 @@ export interface CoinConfig {
   readonly symbol: string;
   /**
    * Initial rate multiplier with 1e18 precision: normalised = amount * rate / 1e18.
-   * 10^(36 - decimals) for a token worth one numeraire unit (Curve 3pool `RATES`).
+   * 10^(36 - decimals) for a token worth one numeraire unit (rate-multiplier convention in public Curve docs).
    */
   readonly rate: bigint;
   /** Delivery-epoch expiry. At heights >= expiresAt the coin is void and the pool winds down. */
@@ -41,9 +41,9 @@ export interface PoolParams {
   readonly adminFee: bigint;
   /** The only party allowed to ramp A, change fees or rates, and withdraw admin fees. */
   readonly admin: PartyId;
-  /** Minimum ramp duration and minimum spacing between ramp starts (Curve MIN_RAMP_TIME, in blocks). */
+  /** Minimum ramp duration and minimum spacing between ramp starts (in blocks). */
   readonly minRampBlocks: Height;
-  /** Delay between CommitFees and ApplyFees (Curve ADMIN_ACTIONS_DELAY, in blocks). >= 1. */
+  /** Delay between CommitFees and ApplyFees (in blocks). >= 1. */
   readonly adminDelayBlocks: Height;
   /** LP shares locked forever by the first deposit (Uniswap MINIMUM_LIQUIDITY). >= 1. */
   readonly minimumLiquidity: Amount;

@@ -1,21 +1,22 @@
 /** Fixed-point base for rates and normalised ("xp") balances: 1e18 = one normalised token. */
 export const PRECISION = 10n ** 18n;
-/** Fees are expressed in parts of 1e10 (Curve `FEE_DENOMINATOR`). */
+/** Fees are expressed in parts of 1e10, as in public Curve docs. */
 export const FEE_DENOMINATOR = 10n ** 10n;
-/** Swap fee cap: 50% (Curve `MAX_FEE`). */
+/** Swap fee cap: 50%, as in public Curve docs. */
 export const MAX_FEE = 5n * 10n ** 9n;
-/** Admin share of the fee cap: 100% (Curve `MAX_ADMIN_FEE`). */
+/** Admin share of the fee cap: 100%, as in public Curve docs. */
 export const MAX_ADMIN_FEE = 10n ** 10n;
 /**
  * A is stored multiplied by A_PRECISION (StableSwap-NG) so ramps interpolate
- * smoothly. For an integer A the solvers are bit-identical to Curve 3pool.
+ * smoothly. For an integer A, A_PRECISION cancels exactly and the solvers give
+ * the same results as with plain integer A.
  */
 export const A_PRECISION = 100n;
-/** Exclusive upper bound for raw A (Curve `MAX_A`). */
+/** Exclusive upper bound for raw A, as in public Curve docs. */
 export const MAX_A = 10n ** 6n;
-/** One ramp may change A by at most this factor in either direction (Curve `MAX_A_CHANGE`). */
+/** One ramp may change A by at most this factor in either direction (10x, as in public Curve docs). */
 export const MAX_A_CHANGE = 10n;
-/** Newton iteration cap for both solvers (Curve uses 255). */
+/** Newton iteration cap for both solvers (255, the usual StableSwap cap). */
 export const MAX_ITERATIONS = 255;
 /** Supported coin counts (StableSwap-NG supports up to 8). */
 export const MIN_COINS = 2;

@@ -19,7 +19,7 @@ caller supplies block heights and decides which events to append.
 
 - Every amount, rate, share and height is a `bigint`. There are no floats.
 - `xp_k = ⌊balance_k·rate_k/1e18⌋` is coin `k` in normalised (1e18) units.
-- `Ann = A·n` is in Curve's code convention (code `A` = paper `A·nⁿ⁻¹`), and is
+- `Ann = A·n` follows the convention in public Curve docs (`A` = paper `A·nⁿ⁻¹`), and is
   stored scaled by `A_PRECISION = 100`. The invariant is
   `Ann·Σx + D = Ann·D + D^(n+1) / (nⁿ·Πx)`.
 - Fees are in units of `FEE_DENOMINATOR = 1e10`.
@@ -88,9 +88,10 @@ Every priced event carries a slippage bound (`minDy`, `maxDx`, `minMint`,
 
 ### 6.1 Solvers
 
-`getD`, `getY` and `getYD` are line-for-line Curve 3pool (Newton, ±1
-convergence, at most 255 iterations). Unlike 3pool, which silently returns its
-last guess, they throw `NO_CONVERGENCE`. They also check their domain and throw
+`getD`, `getY` and `getYD` are Newton solvers for the invariant, derived from
+the StableSwap paper (Egorov 2019); conventions match public Curve docs (±1
+convergence, at most 255 iterations). Instead of returning a last guess, they
+throw `NO_CONVERGENCE`. They also check their domain and throw
 `DOMAIN`: every `0 < xp_i ≤ MAX_XP = 1e33` and `1 ≤ A < MAX_A`.
 
 The pool itself uses **exactly rounded** versions built on the integer
@@ -122,8 +123,8 @@ Every rounding below favours the pool, that is, the remaining LPs.
 | all | input to `xp` | down |
 | all | pre-op D / post-op D | up / down |
 | exchange | `y` | up (smallest y on the curve) |
-| exchange | `dyGross = xp_j − y − 1` | extra −1 (3pool) |
-| exchange | fee `⌈dyGross·fee/1e10⌉` | up (3pool rounds down) |
+| exchange | `dyGross = xp_j − y − 1` | extra −1 |
+| exchange | fee `⌈dyGross·fee/1e10⌉` | up (a plain Newton pool rounds down) |
 | exchange | `dy` to native units | down |
 | exchange | admin share | down (remainder stays with LPs) |
 | exact-out | `dx` | smallest dx whose exact-in quote ≥ dy; executed as that exact-in trade, surplus to LPs |
@@ -165,8 +166,8 @@ lever.
 run the same code as the events. A preview at the head height always equals the
 executed result.
 
-Like stableswap-ng (and unlike 3pool), `calcTokenAmount` includes fees.
-`curveExchangeDy` exposes Curve's own formula (Newton, floor fee) for
+Like stableswap-ng (and unlike the original pools), `calcTokenAmount` includes
+fees. `newtonExchangeDy` exposes the plain Newton formula (floor fee) for
 cross-checks only.
 
 ## 7. Admin parameters
@@ -257,13 +258,16 @@ Each one is asserted by property tests (see TEST_PLAN.md):
 
 ## 11. Reference compatibility
 
-On the Curve 3pool reference vectors (`scripts/curve_3pool_reference.py`, a
-transcription of the 3pool Vyper):
+On the independent reference vectors (`scripts/stableswap_paper_reference.py`,
+derived from the StableSwap paper (Egorov 2019); conventions match public Curve
+docs; exact integer bisection, no Newton):
 
-- `getD`, `getY` and `curveExchangeDy` agree to the wei.
-- Pool swaps and single-coin exits never pay more than 3pool. They pay at most
-  16 normalised units less for 18-decimal coins, or 1 native unit for 6-decimal
-  coins (observed maximum: 3 and 4 normalised units).
+- `getDUp`, `getDDown` and `getYUp` equal the exact integer roots. Newton's
+  `getD` and `getY` are within 2 units; `newtonExchangeDy` is within 2 native
+  units of the ideal output.
+- Pool swaps and single-coin exits never pay more than the ideal amount. They
+  pay at most 16 normalised units less for 18-decimal coins, or 1 native unit
+  for 6-decimal coins (observed maximum: 1 normalised unit).
 
 ## 12. Error codes
 
@@ -279,19 +283,19 @@ transcription of the 3pool Vyper):
 
 ## 13. Design decisions and rationale
 
-1. **Exactly rounded D and y instead of Curve's Newton output.** Newton floors
+1. **Exactly rounded D and y instead of plain Newton output.** Newton floors
    intermediate terms, and at zero fee this can let real-valued D fall by a
    fraction of a wei per swap. Using ⌈D⌉ before and ⌊D⌋ after makes "D never
    decreases" exactly true. The cost is that the pool pays a few normalised
-   units less than 3pool.
+   units less than a plain Newton pool.
 2. **Revert on non-convergence, everywhere.** This is stableswap-ng
-   behaviour, not 3pool's silent last guess. An operation that would leave an
+   behaviour, not a silent last guess. An operation that would leave an
    unpriceable state also reverts. Proportional exits never need D, so LPs can
    always leave.
 3. **Exact-output via search.** The pool finds the minimal `dx` and executes
    it as an exact-input trade, so both paths share one rounding analysis. Any
    surplus goes to LPs.
-4. **Fee rounding up** (3pool rounds the swap fee down).
+4. **Fee rounding up** (a plain Newton pool rounds the swap fee down).
 5. **Bootstrap lock plus a minimum initial D**, together with the
    all-coins rule (Uniswap `MINIMUM_LIQUIDITY`; the yETH init path).
 6. **Write-down at the update, not at the reclaim.** Losses are recognised as

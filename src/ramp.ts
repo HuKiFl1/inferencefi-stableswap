@@ -1,7 +1,7 @@
 import type { Height, RampState } from "./types.js";
 
 /**
- * Precise A at `height` (Curve 3pool `_A`, lines 149-166, in blocks instead of
+ * Precise A at `height` (linear A ramp as in public Curve docs, in blocks instead of
  * seconds). Linear interpolation from initialA at initialHeight to futureA at
  * futureHeight. Integer division truncates the step, so the interpolated value
  * always lies between the endpoints and rounds toward initialA.

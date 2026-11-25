@@ -17,34 +17,40 @@ Flop interaction are in **[TEST_PLAN.md](./TEST_PLAN.md)**.
 
 ## How this sits on FLOP
 
-FLOP is a Substrate Layer 1 with no EVM and no user-deployed code. General
-computation runs off-chain inside agents and settles through fixed native
-primitives: transfers, staking, escrow, time locks, multisig and spend
-conditions ([whitepaper](https://flop.network/whitepaper/), §03).
+**Role:** an independent off-chain reference implementation and test-vector
+source for Inference Finance, whose AMM is Solidity on HyperEVM testnet (chain
+998), unaudited and TEST mocks only. FLOP has no EVM and no user-deployed code
+([whitepaper](https://flop.network/whitepaper/), §03), so DeFi contracts run on
+an EVM chain and integrate with FLOP through inference credits, spend receipts,
+escrow and channels. A native FLOP module remains a possible long-term path,
+not the current plan.
 
-- **Builds on:** FLOP escrow and compute channels (backed coins), TCLK, the
-  HTLC used by agents on Technocore, for settling the legs of a swap, and,
-  once implemented, FLOP Compute Units (FCUs) as expiring pool coins.
-- **Runs off-chain:** the pool is a pure, replayable ledger, so agents or a
-  venue such as Technocore can price and verify every swap before it settles
-  on FLOP.
-- **Proposal:** a reference spec and test suite for a governance-adopted
-  native module (pallet), sketched in
-  **[PALLET_PROPOSAL.md](./PALLET_PROPOSAL.md)**. It is not an EVM contract.
+- **Useful for:** a second implementation to check a Solidity StablePool's
+  `getDy`, D and one-coin exits against; boundary and incident tests for the
+  contract suite (see [TEST_PLAN.md](./TEST_PLAN.md)); pool coins as
+  OMER-normalised credits via per-coin rate multipliers.
+- **Integrates with FLOP through:** escrow-backed credit lent into compute
+  channels (backed coins), settled channel state as spend receipts, and TCLK,
+  the HTLC used by agents on Technocore, when swap legs live on different rails.
 - **Money legos:** [Flop reclaim](https://github.com/HuKiFl1/Flop) caps
-  backed-coin exposure, this pool sets prices between credits, and the
-  upcoming oracle and FCU forward curve will read those prices.
+  backed-coin exposure and informs the "reclaimed if unserved" path of a
+  receipt-backed credit minter; this pool sets prices between credits.
+- **Honest gap:** there is no on-chain FLOP or Pearl inference-credit token
+  yet, so any rate for FLOP credit is a placeholder, not a market price.
 
 The full mapping and FLOP-specific open questions are in
-**[FLOP.md](./FLOP.md)**.
+**[FLOP.md](./FLOP.md)**. A long-term native-module sketch is in
+[docs/FUTURE_NATIVE_MODULE.md](./docs/FUTURE_NATIVE_MODULE.md).
 
 ## Properties
 
 - Node 20+, ESM, **zero runtime dependencies**.
 - All amounts and heights are `bigint`. No floats, no clocks, no I/O. You pass
   the block height in.
-- **Curve-exact math.** Curve's D invariant and y solver: Newton's method,
-  255-iteration cap, explicit `NO_CONVERGENCE` and `DOMAIN` errors.
+- **StableSwap math** derived from the StableSwap paper (Egorov 2019);
+  conventions match public Curve docs. Newton's method for D and y with a
+  255-iteration cap, exactly rounded variants checked against the integer
+  residual, and explicit `NO_CONVERGENCE` and `DOMAIN` errors.
 - **Operations.**
   - `get_dy`/`exchange`, and exact-output `get_dx`.
   - `add_liquidity` (with imbalance fees) and `calc_token_amount`.
@@ -114,8 +120,8 @@ Lower-level pure functions are exported too:
 - Ledger: `applyEvent`, `replay`.
 - Solvers: `getD`, `getY`, `getYD`, and the exactly rounded `getDUp`,
   `getDDown`, `getYUp`, `getYDUp`, `invariantResidual`.
-- Quotes: `quote*` and `curveExchangeDy` (Curve's own formula, for
-  cross-checks).
+- Quotes: `quote*` and `newtonExchangeDy` (plain Newton formula with a floor
+  fee, for cross-checks).
 - `recoverablePrincipal`, which is Flop's `toLender`.
 
 ## Development
@@ -125,7 +131,7 @@ npm ci
 npm test            # vitest: unit, property, reference, mutation
 npm run typecheck   # tsc --noEmit (strict)
 npm run build       # emits dist/
-npm run reference   # regenerates tests/fixtures/curve-3pool-reference.json (python3)
+npm run reference   # regenerates tests/fixtures/stableswap-paper-reference.json (python3)
 ```
 
 Set `PROPERTY_RUNS` for more property-test iterations, for example
@@ -155,39 +161,43 @@ Test layout:
 - `tests/security.test.ts`: one test group per incident (reentrancy, dust
   attacks, solver/bootstrap, minting, payload binding), plus gradual
   parameters, R4 and R5.
-- `tests/reference.test.ts`: Curve 3pool reference values.
+- `tests/reference.test.ts`: independent StableSwap paper reference values.
 - `tests/mutation.test.ts`: 22 injected bugs, each of which must be caught.
 
 ### Reference values
 
-`scripts/curve_3pool_reference.py` transcribes Curve 3pool's Vyper
-(`get_D`, `get_y`, `get_y_D`, `exchange`, `get_dy`, `calc_token_amount`,
-`_calc_withdraw_one_coin`). It covers 16 pool and A combinations, balanced,
-skewed and mixed-decimal, with A from 1 to 5000. Results:
+`scripts/stableswap_paper_reference.py` is derived from the StableSwap paper
+(Egorov 2019); conventions match public Curve docs. It shares no code with any
+pool implementation: it solves the paper's invariant exactly over the integers
+by bisection (no Newton iteration) and applies fees and unit conversions in
+exact rationals (`fractions.Fraction`) with one final floor. It covers 16 pool
+and A combinations, balanced, skewed and mixed-decimal, with A from 1 to 5000.
+Results:
 
-- `getD` matches 16/16 and `getY` 80/80, to the wei. Curve's exchange formula
-  (`curveExchangeDy`) matches 240/240.
-- **Pool swaps never pay more than 3pool.**
-  - 231 of 240 swaps price, 135 of them exactly; at most 3 normalised units
-    less.
-  - 9 revert with `NO_CONVERGENCE`: after those trades Curve's own D does not
+- The exactly rounded solvers equal the bisection roots exactly: `getDUp` and
+  `getDDown` 16/16, `getYUp` 80/80. Newton's `getD` and `getY` land within 2
+  units of the exact root.
+- `newtonExchangeDy` matches the ideal output in 169/240 cases and is never
+  more than 2 native units away.
+- **Pool swaps never pay more than the ideal output.**
+  - 231 of 240 swaps price, 135 of them exactly; at most 1 normalised unit
+    (1 wei of an 18-decimal coin) less.
+  - 9 revert with `NO_CONVERGENCE`: after those trades Newton's D does not
     converge.
-- Single-coin exits match 96/144 and are at most 4 normalised units lower.
-- 3pool's own `get_dy` view disagrees with its `exchange` in 49 cases, because
-  it converts to native units before taking the fee, while `exchange` takes the
-  fee first. This library's views and executions share one code path.
-- In 35 of 81 near-5000:1 states at A ≤ 3, 3pool's `get_D` silently returns its
-  last guess. This library reverts with `NO_CONVERGENCE`.
-- Recomputing D after a `get_y` swap drifts by up to 8 wei at A = 1–2 with
+- Single-coin exits match the ideal exit (imbalance-fee rule from public Curve
+  docs) in 96/144 cases and are never higher, at most 1 normalised unit lower.
+- Fee-free deposits and withdrawals mint and burn within the exact range
+  implied by the integer bounds on D (48/48).
+- In 35 of 81 near-5000:1 states at A ≤ 3, integer Newton for D cycles instead
+  of converging. A pool that returned its last guess would misprice there; this
+  library reverts with `NO_CONVERGENCE`. Where Newton does converge in those
+  states it can stop up to 16 units from the exact root, and the exact solvers
+  correct it.
+- Recomputing D after a Newton `y` swap drifts by up to 8 wei at A = 1–2 with
   180:1 imbalance, so the tests compare D against Newton with a relative
   tolerance. At extreme imbalance, Newton's y lands up to 64 wei from the exact
   root (seen in fuzzing). The exact solvers correct at most 64 units and revert
   beyond that.
-
-Curve's `tests/simulation.py`, an independent implementation, agreed with the
-transcription on 96/96 values when the fixture was generated. It is not
-vendored because of its license; set `CURVE_SIMULATION_PY` to its path to
-rerun that cross-check.
 
 ## Open questions for the protocol author
 
