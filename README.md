@@ -15,6 +15,29 @@ recover.
 The full rules are in **[SPEC.md](./SPEC.md)**, and the boundary tests and the
 Flop interaction are in **[TEST_PLAN.md](./TEST_PLAN.md)**.
 
+## How this sits on FLOP
+
+FLOP is a Substrate Layer 1 with no EVM and no user-deployed code. General
+computation runs off-chain inside agents and settles through fixed native
+primitives: transfers, staking, escrow, time locks, multisig and spend
+conditions ([whitepaper](https://flop.network/whitepaper/), §03).
+
+- **Builds on:** FLOP escrow and compute channels (backed coins), TCLK, the
+  HTLC used by agents on Technocore, for settling the legs of a swap, and,
+  once implemented, FLOP Compute Units (FCUs) as expiring pool coins.
+- **Runs off-chain:** the pool is a pure, replayable ledger, so agents or a
+  venue such as Technocore can price and verify every swap before it settles
+  on FLOP.
+- **Proposal:** a reference spec and test suite for a governance-adopted
+  native module (pallet), sketched in
+  **[PALLET_PROPOSAL.md](./PALLET_PROPOSAL.md)**. It is not an EVM contract.
+- **Money legos:** [Flop reclaim](https://github.com/HuKiFl1/Flop) caps
+  backed-coin exposure, this pool sets prices between credits, and the
+  upcoming oracle and FCU forward curve will read those prices.
+
+The full mapping and FLOP-specific open questions are in
+**[FLOP.md](./FLOP.md)**.
+
 ## Properties
 
 - Node 20+, ESM, **zero runtime dependencies**.
