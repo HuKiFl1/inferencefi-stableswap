@@ -1,0 +1,48 @@
+{
+  "name": "inferencefi-stableswap",
+  "version": "0.1.0",
+  "description": "Deterministic StableSwap pool math for InferenceFi inference-credit tokens. bigint only, append-only event ledger, zero runtime dependencies.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "SPEC.md",
+    "TEST_PLAN.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm test",
+    "reference": "python3 scripts/curve_3pool_reference.py > tests/fixtures/curve-3pool-reference.json"
+  },
+  "keywords": [
+    "stableswap",
+    "curve",
+    "amm",
+    "inference",
+    "bigint",
+    "event-sourcing"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "fast-check": "^4.11.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12"
+  }
+}
